@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 
 namespace AutoVote
@@ -103,5 +105,44 @@ namespace AutoVote
             Disconnection(entryname);
             Connection(entryname, username, password);
         }
+
+        public static string GetPublicIP()
+        {
+            string public_ip = string.Empty;
+            try
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://api.ipify.org");
+                //request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
+
+                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    Stream receiveStream = response.GetResponseStream();
+                    StreamReader readStream = null;
+
+                    if (response.CharacterSet == null)
+                    {
+                        readStream = new StreamReader(receiveStream);
+                    }
+                    else
+                    {
+                        readStream = new StreamReader(receiveStream, Encoding.UTF8);
+                    }
+
+                    public_ip = readStream.ReadToEnd();
+
+                    response.Close();
+                    readStream.Close();
+                }
+            }
+            catch (Exception exp)
+            {
+                Console.WriteLine(exp.ToString());
+                public_ip = string.Empty;
+            }
+            return public_ip;
+        }
+
     }
 }

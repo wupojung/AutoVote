@@ -20,13 +20,32 @@ namespace AutoVote
 
         int count_total = 0;
         int count_current = 0;
+        int count_hit = 0;
+
+        public string last_ip = string.Empty;
 
         public frmMain()
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
 
             InitializeComponent();
         }
+
+
+        private void frmMain_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+
+        }
+
+        private void frmMain_Shown(object sender, EventArgs e)
+        {
+            tsslStatus.Text = "Ready";
+        }
+
 
         private void btnStart_Click(object sender, EventArgs e)
         {
@@ -40,6 +59,7 @@ namespace AutoVote
                     System.Threading.Thread.Sleep(1000);
 
                     ppoe = new RasDialManger(tbEntryName.Text.Trim(), tbUsername.Text.Trim(), tbPassword.Text.Trim());
+
 
                     timer = new Timer();
                     timer.Interval = int.Parse(tbInterval.Text);
@@ -58,10 +78,6 @@ namespace AutoVote
             try
             {
                 timer.Stop();
-                tsslStatus.Text = "Disconnecting...";
-
-                ppoe.Disconnection();
-
 
                 if (count_current > count_total)
                 {
@@ -69,16 +85,54 @@ namespace AutoVote
                     timer.Enabled = false;
                     return;
                 }
-                count_current++;
+                ChangeIP();
 
-                tsslStatus.Text = "Connecting...";
-                ppoe.Connection();
+                count_current++;
 
                 GetRequest(tbURL.Text.Trim());
 
                 timer.Start();
                 lbInfo.Text = count_current.ToString() + "/" + count_total.ToString();
 
+            }
+            catch (Exception exp)
+            {
+                Console.WriteLine(exp.ToString());
+            }
+        }
+        
+        private void ChangeIP(int max_retry_count = 10)
+        {
+            try
+            {
+                string new_ip = string.Empty;
+                int counter = 0;
+
+                if (string.IsNullOrEmpty(last_ip)) { last_ip = RasDialManger.GetPublicIP(); }
+
+
+                do
+                {
+                    tsslStatus.Text = "Disconnecting...";
+                    ppoe.Disconnection();
+
+                    tsslStatus.Text = "Waiting for 5 second ...";
+                    System.Threading.Thread.Sleep(5000);
+                    tsslStatus.Text = "Connecting...";
+                    ppoe.Connection();
+
+                    new_ip = RasDialManger.GetPublicIP();
+                    tssl_ip.Text = new_ip;
+
+                    Console.WriteLine("new ip:" + new_ip);
+                    Console.WriteLine("last ip:" + last_ip);
+
+                    counter++;
+                    if (counter >= max_retry_count) { break; }
+
+                } while (last_ip.Equals(new_ip));
+
+                last_ip = new_ip;
 
             }
             catch (Exception exp)
@@ -94,7 +148,7 @@ namespace AutoVote
 
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(urlAddress);
                 request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore);
-                
+
                 HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 
                 if (response.StatusCode == HttpStatusCode.OK)
@@ -112,8 +166,14 @@ namespace AutoVote
                     }
                     string data = readStream.ReadToEnd();
 
+                    if (data.IndexOf("完成") > 0)
+                    {
+                        count_hit++;
+                    }
+                    lbHit.Text = string.Format("{0}/{1}", count_hit, count_current);
                     /// Encoding.UTF8.GetString()
                     Console.WriteLine(data);
+                    //lbHit
 
                     response.Close();
                     readStream.Close();
@@ -125,25 +185,6 @@ namespace AutoVote
 
             }
         }
-
-        private void frmMain_Load(object sender, EventArgs e)
-        {
-
-        }
-
-        private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
-        {
-
-        }
-
-        private void frmMain_Shown(object sender, EventArgs e)
-        {
-            tsslStatus.Text = "Ready";
-        }
-
-        private void tbURL_TextChanged(object sender, EventArgs e)
-        {
-
-        }
+        
     }
 }
